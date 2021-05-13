@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pygame
 
 pygame.font.init()
@@ -9,21 +11,9 @@ class Player:
 		self.wallet = wallet
 		self.owned = owned
 
-	def draw(self, win):
-		# textsurface = myfont.render(f'Wallet: {self.wallet}\nOwned: {self.owned}', False, (0, 0, 0))
+	def buy(self, seller: Player, price: float):
+		self.owned += 1
+		self.wallet -= price
 
-		# win.blit(textsurface, (0, 200))
-
-		pass
-
-	# def move(self):
-	# 	keys = pygame.key.get_pressed()
-
-	# 	if (keys[pygame.K_w]):
-	# 		self.y -= self.velocity
-	# 	if (keys[pygame.K_a]):
-	# 		self.x -= self.velocity
-	# 	if (keys[pygame.K_s]):
-	# 		self.y += self.velocity
-	# 	if (keys[pygame.K_d]):
-	# 		self.x += self.velocity
+		seller.owned -= 1
+		seller.wallet += price

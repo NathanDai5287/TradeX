@@ -7,7 +7,13 @@ from _thread import *
 import pickle
 from collections import deque as queue
 
-server = '172.28.128.1'
+# server = '172.28.128.1'
+# server = '0.0.0.0'
+# server = '172.22.192.1'
+# server = '255.255.255.0'
+server = '10.0.0.10'
+# server = '151'
+
 port = 5555
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,11 +23,10 @@ try:
 except socket.error as e:
 	print(e)
 
-s.listen(2)
+s.listen(5)
 
 print('Waiting for a connection; Server Started')
 
-# players = [Player(), Player()]
 players = []
 price = 100
 pendingbuys = queue()
@@ -32,17 +37,14 @@ def threaded_client(connection, iplayer):
 
 	connection.send(pickle.dumps(players[iplayer]))
 
-	reply = ''
+	player = players[iplayer]
 	while (True):
 		try:
 			data = pickle.loads(connection.recv(2048)) # Order
 		except:
-			print('Lost Connection')
-			connection.close() # BUG: this may lose track of which player is which
-			# players.pop(iplayer)
-
-		# print(data)
-		# players[player] = data
+			# print('Lost Connection')
+			connection.close()
+			break
 
 		if (not(data)):
 			print('Disconnected')
@@ -50,55 +52,28 @@ def threaded_client(connection, iplayer):
 
 		if (data.order == 1):
 			if (pendingsells):
-				sell = pendingsells.popleft()
-
-				players[iplayer].owned += 1
-				sell.owned -= 1
-
-				players[iplayer].wallet -= price
-				sell.wallet += price
+				seller = pendingsells.popleft()
+				player.buy(seller, price)
 			else:
-				pendingbuys.append(players[iplayer])
-				price *= 1.0001
+				pendingbuys.append(player)
 
 		elif (data.order == -1):
 			if (pendingbuys):
-				buy = pendingbuys.popleft()
-
-				players[iplayer].owned -= 1
-				# players[iplayer].owned += 1
-				buy.owned += 1
-
-				# players[iplayer].wallet += price
-				players[iplayer].wallet += price
-				buy.wallet -= price
+				buyer = pendingbuys.popleft()
+				buyer.buy(player, price)
 			else:
-				pendingsells.append(players[iplayer])
-				price *= 0.9999
-		else:
-			buy = bool(pendingbuys)
-			sell = bool(pendingsells)
+				pendingsells.append(player)
 
-			if (buy and not sell): # TODO: make change based on the numbmer of orders open
-				price *= 1.0001
-			elif (sell and not buy):
-				price *= 0.9999
+		nbuyers = len(pendingbuys)
+		nsellers = len(pendingsells)
 
-		reply = players[iplayer], price
-		# reply = 1, 2
+		change = 1 + 0.0001 * (nbuyers - nsellers)
+		price *= change
 
-		print('Received: ', data)
-		print('Sending: ', reply)
-
-		# connection.sendall(pickle.dumps(reply))
 		try:
-			print(iplayer)
-			connection.sendall(pickle.dumps((players[iplayer], price)))
-		# except IndexError:
+			connection.sendall(pickle.dumps((player, price)))
 		except:
 			print(iplayer)
-		# except:
-			# print('Error in threaded client')
 
 	print('Lost Connection')
 	connection.close()

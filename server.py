@@ -1,4 +1,6 @@
 from player import Player
+from order import Join, Order
+from game import Game
 from client import RED, GREEN, WHITE
 
 import socket
@@ -6,6 +8,8 @@ from _thread import *
 
 import pickle
 from collections import deque as queue
+from uuid import uuid4
+import copy
 
 # server = '172.28.128.1'
 # server = '0.0.0.0'
@@ -27,17 +31,22 @@ s.listen(5)
 
 print('Waiting for a connection; Server Started')
 
-players = []
-price = 100
-pendingbuys = queue()
-pendingsells = queue()
+def random_code(address: tuple) -> int:
+	return int(str(hash(address[1]))[-8:])
 
-def threaded_client(connection, iplayer):
-	global price
+games = {}
 
-	connection.send(pickle.dumps(players[iplayer]))
+def threaded_client(connection):
+	# if (code in games):
+		# game = games[code]
+	# else:
+		# games[code] = Game()
 
-	player = players[iplayer]
+	# game = games[1111]
+
+	# connection.send(pickle.dumps(game.players[iplayer]))
+	connection.send(pickle.dumps(True))
+
 	while (True):
 		try:
 			data = pickle.loads(connection.recv(2048)) # Order
@@ -50,30 +59,50 @@ def threaded_client(connection, iplayer):
 			print('Disconnected')
 			break
 
-		if (data.order == 1):
-			if (pendingsells):
-				seller = pendingsells.popleft()
-				player.buy(seller, price)
+		if (type(data) == Join):
+
+			if (data.code in games):
+				game = games[data.code]
 			else:
-				pendingbuys.append(player)
+				game = Game()
+				games[data.code] = copy.deepcopy(game)
 
-		elif (data.order == -1):
-			if (pendingbuys):
-				buyer = pendingbuys.popleft()
-				buyer.buy(player, price)
-			else:
-				pendingsells.append(player)
+			player = Player()
+			player.iplayer = len(games[data.code].players)
+			games[data.code].players.append(copy.deepcopy(player)) # TODO: somehow keep track of iplayer
 
-		nbuyers = len(pendingbuys)
-		nsellers = len(pendingsells)
+			connection.send(pickle.dumps((games[data.code].players[-1], games[data.code].price)))
 
-		change = 1 + 0.0001 * (nbuyers - nsellers)
-		price *= change
+		elif (type(data) == Order):
+			game = games[data.code] # TODO: client should send iplayer data
+			# player = game.players[iplayer]
+			player = game.players[data.player.iplayer] # TEMP
 
-		try:
-			connection.sendall(pickle.dumps((player, price)))
-		except:
-			print(iplayer)
+			if (data.order == 1):
+				if (game.pendingsells):
+					seller = game.pendingsells.popleft()
+					player.buy(seller, game.price)
+				else:
+					game.pendingbuys.append(player)
+
+			elif (data.order == -1):
+				if (game.pendingbuys):
+					buyer = game.pendingbuys.popleft()
+					buyer.buy(player, game.price)
+				else:
+					game.pendingsells.append(player)
+
+			nbuyers = len(game.pendingbuys)
+			nsellers = len(game.pendingsells)
+
+			change = 1 + 0.0001 * (nbuyers - nsellers)
+			game.price *= change # BUG: the price is changing in all lobbies
+
+			try:
+				connection.send(pickle.dumps((player, game.price)))
+			except:
+				# print(iplayer)
+				pass
 
 	print('Lost Connection')
 	connection.close()
@@ -83,7 +112,7 @@ while (True):
 	connection, address = s.accept()
 
 	print('Connected to: ', address)
-	players.append(Player())
+	# games[random_code(address)].players.append(Player())
 
-	start_new_thread(threaded_client, (connection, nplayers))
-	nplayers += 1
+	start_new_thread(threaded_client, (connection,))
+	# nplayers += 1

@@ -10,7 +10,7 @@ class Network:
 		self.port = 5555
 		self.address = (self.server, self.port)
 
-		self.p = self.connect() # TODO: this is what information will be sent to the server
+		self.p = self.connect()
 
 	def get_p(self):
 		return self.p
@@ -18,6 +18,7 @@ class Network:
 	def connect(self):
 		try:
 			self.client.connect(self.address)
+			# self.client.connect(code)
 			return pickle.loads(self.client.recv(2048))
 		except:
 			pass

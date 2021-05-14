@@ -10,6 +10,7 @@ class Player:
 	def __init__(self, wallet=500, owned=10):
 		self.wallet = wallet
 		self.owned = owned
+		self.iplayer = None
 
 	def buy(self, seller: Player, price: float):
 		self.owned += 1

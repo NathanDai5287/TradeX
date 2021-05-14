@@ -1,9 +1,11 @@
 from network import Network
 from player import Player
-from order import Order
+from order import Order, Join
 
 import pygame
 from pygame_button import Button
+
+import copy
 
 WIDTH = 500
 HEIGHT = 500
@@ -54,12 +56,22 @@ HOME = {
 }
 
 # TODO: make these Player methods rather than functions
-def join():
+def join(code: str):
 	global menu
+	global n
+	global p
 	# p.join(code)
 	# TODO: make player join private lobby
-	print('joined')
 	menu = False
+
+	n = Network()
+
+	player, price = n.send(Join(code)) # TODO:
+
+	print('created')
+	p = player
+
+	return player
 
 def create():
 	print('created')
@@ -95,13 +107,12 @@ def redraw_home(win: pygame.Surface, code: str, color: tuple, input_rect: pygame
 
 menu = True
 def main():
+	global p
+
 	run = True
 
-	n = Network()
-	p = n.get_p()
-
-	if (p is None):
-		raise Exception('Server is not running')
+	# if (p is None):
+		# raise Exception('Server is not running')
 
 	price = 100
 
@@ -118,7 +129,7 @@ def main():
 	)
 
 	go = Button(
-		(300, 400, 25, 25), LIGHT_GREY, lambda: join(), text='GO', **HOME
+		(300, 400, 25, 25), LIGHT_GREY, lambda: join(code), text='GO', **HOME
 	)
 
 	while (menu):
@@ -141,12 +152,12 @@ def main():
 				else:
 					active = False
 
-			if event.type == pygame.KEYDOWN:
-				if keys[pygame.K_BACKSPACE]:
+			if (active and event.type == pygame.KEYDOWN):
+				if (keys[pygame.K_BACKSPACE]):
 					if (keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]):
-						code = ''.join(code.split()[:-1])
+						code = ''.join(code.split()[:-1]) # OPTIMIZE
 					else:
-						code = code[:-1]
+						code = code[:-1] # OPTIMIZE
 
 				else:
 					if (len(code) < 8):
@@ -164,17 +175,21 @@ def main():
 
 	#####################################################################
 
+	n = Network()
+	# p = n.get_p()
+
 	buy = Button(
-		(0, 0, 100, 50), LIGHT_GREEN, lambda: n.send(Order(p, 1)), text='Buy', **BUY
+		(0, 0, 100, 50), LIGHT_GREEN, lambda: n.send(Order(p, 1, code)), text='Buy', **BUY
 	)
 	sell = Button(
-		(150, 0, 100, 50), LIGHT_RED, lambda: n.send(Order(p, -1)), text='Sell', **SELL
+		(150, 0, 100, 50), LIGHT_RED, lambda: n.send(Order(p, -1, code)), text='Sell', **SELL
 	)
 
-	while (run):
+	while (run): # TODO: displaye game code in bottom right
 		clock.tick(60)
 
-		p, price = n.send(Order(p, 0))
+		p, price = n.send(Order(p, 0, code=code))
+
 		# print(price)
 
 		for event in pygame.event.get():

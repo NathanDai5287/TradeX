@@ -1,5 +1,5 @@
 from player import Player
-from order import Join, Order
+from order import Join, Order, Start
 from game import Game
 from client import RED, GREEN, WHITE
 
@@ -31,9 +31,6 @@ s.listen(5)
 
 print('Waiting for a connection; Server Started')
 
-def random_code(address: tuple) -> int:
-	return int(str(hash(address[1]))[-8:])
-
 games = {}
 
 def threaded_client(connection):
@@ -59,21 +56,33 @@ def threaded_client(connection):
 			print('Disconnected')
 			break
 
-		if (type(data) == Join):
+		category = type(data)
 
-			if (data.code in games):
-				game = games[data.code]
-			else:
-				game = Game()
-				games[data.code] = copy.deepcopy(game)
+		if (category == Start):
+			game = Game()
+			games[data.code] = copy.deepcopy(game)
 
 			player = Player()
-			player.iplayer = len(games[data.code].players)
-			games[data.code].players.append(copy.deepcopy(player)) # TODO: somehow keep track of iplayer
+			player.iplayer = 0
+			games[data.code].players.append(player)
 
 			connection.send(pickle.dumps((games[data.code].players[-1], games[data.code].price)))
 
-		elif (type(data) == Order):
+		elif (category == Join):
+
+			if (data.code in games):
+				game = games[data.code]
+
+				player = Player()
+				player.iplayer = len(games[data.code].players)
+				games[data.code].players.append(player) # TODO: somehow keep track of iplayer
+
+				connection.send(pickle.dumps((games[data.code].players[-1], games[data.code].price)))
+			else:
+				connection.send(pickle.dumps((False, False)))
+
+
+		elif (category == Order):
 			game = games[data.code] # TODO: client should send iplayer data
 			# player = game.players[iplayer]
 			player = game.players[data.player.iplayer] # TEMP
